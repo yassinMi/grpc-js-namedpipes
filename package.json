@@ -1,0 +1,23 @@
+{
+  "name": "grpc-js-namedpipes",
+  "version": "1.0.0",
+  "description": "mainly designed to work with GrpcDotNetNamedPipes, enabling IPC between .NET and NodeJS apps",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "gRPC",
+    "DotNet",
+    "protobuf",
+    "IPC",
+    "C#"
+  ],
+  "author": "yassinMi",
+  "license": "MIT",
+  "dependencies": {
+    "@grpc/grpc-js": "^1.10.6",
+    "google-protobuf": "^3.21.2",
+    "grpc": "^1.24.11"
+  }
+}
