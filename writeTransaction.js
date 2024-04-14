@@ -3,6 +3,8 @@
 const { default: ByteBuffer } = require("bytebuffer");
 const net = require("net");
 const protobuf  = require("protobufjs");
+const { GrpcDotNetNamedPipes } = require("./transport-proto");//generated with package protobufjs and protobufjs-cli
+
 class WriteTransaction {
 
 
@@ -28,8 +30,9 @@ class WriteTransaction {
 
         len.writeInt32LE(this.buffer.length)
         //# writing transaction data
-        console.log("writing rtransaction lenght ", this.buffer.length)
+        console.log("writing transaction lenght ", this.buffer.length)
         stream.write(len);
+        
         console.log("writing transaction data ", this.buffer.toJSON())
         stream.write(this.buffer);
     }
@@ -44,9 +47,22 @@ class WriteTransaction {
     addTransportMessage(tm) {
         var writer = new protobuf.BufferWriter()
         var serialized = tm.serializeBinary();
-        console.log("writing transport message (bytes) ", serialized.length)
-        writer.int32(serialized.length)
-        writer.bytes(serialized);
+        var messageType = tm.hasHeaders()?"header":tm.hasPayloadInfo()?"pi":tm.hasRequestControl()?"rc":tm.hasRequestInit()?"ri":tm.hasTrailers()?"trailers":"unknown types"
+        console.log("writing delimited transport message (bytes) ",messageType,serialized.length)
+        
+        //writer.int32(serialized.length)
+        //writer.bytes(serialized);
+        var tm_obj = tm.toObject();
+        if(tm_obj.requestControl===0) tm_obj.requestControl=undefined;//workaround multiple values issue
+        console.log(tm_obj)
+        var err = GrpcDotNetNamedPipes.Generated.TransportMessage.verify(tm_obj)
+        if(err!==null){
+            console.log(err);
+            throw new Error(err);
+        }
+        let tm2 = GrpcDotNetNamedPipes.Generated.TransportMessage.fromObject(tm_obj)
+        let newBuffer2 = GrpcDotNetNamedPipes.Generated.TransportMessage.encodeDelimited(tm2, writer)
+
         var newBuffer = writer.finish();
         this.buffer = Buffer.concat([this.buffer, newBuffer])
         return this;

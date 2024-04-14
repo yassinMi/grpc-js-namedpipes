@@ -97,7 +97,7 @@ class NamedPipeServer {
                         return undefined
                     }
                     else{
-                        return  await handeler(payload);
+                        return await handeler(payload);
                     }
                 }
                 let sendResponse = async(responseOrUnimplmented)=>{
@@ -129,6 +129,19 @@ class NamedPipeServer {
                     }
                     
                 }
+                let sendError = async(errorString)=>{
+                    console.log("sendEror ...")
+                    //write StatusCode.Unimplemented
+                    //and close
+                    let trailers = new proto.GrpcDotNetNamedPipes.Generated.Trailers();
+                    trailers.setStatusCode(status.INTERNAL)
+                    trailers.setStatusDetail(errorString)
+                    let tm_trailers = new proto.GrpcDotNetNamedPipes.Generated.TransportMessage();
+                    tm_trailers.setTrailers(trailers);
+                    new WriteTransaction().addTransportMessage(tm_trailers)
+                    .writeTo(stream)
+                    stream.end();
+                }
                 let hndlTranportMessage =async (tm)=>{
                     if (tm.payloadInfo) {
                         payload = buffer.subarray(reader.pos, reader.pos + tm.payloadInfo.size);
@@ -136,9 +149,18 @@ class NamedPipeServer {
                         console.log("got payload: ", payload.toJSON())
                         //# generate and send response (or unimplemented signal)
                         console.log("generateResponse...")
-                        var response = await generateResponse();
+                        let implementationEror = null;
+                        try {
+                            var response = await generateResponse();
+                        } catch (error) {
+                            implementationEror = error?.message||error?.toString||"unknown";
+                        }
+                        
                         console.log("sendResponse ...")
                         try {
+                            if(implementationEror!==null)
+                            await sendError(implementationEror);
+                            else
                             await sendResponse(response);
                         }
                         catch (err){

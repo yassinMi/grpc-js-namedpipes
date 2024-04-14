@@ -72,10 +72,10 @@ describe("NamedPipeServer", (s) => {
 
             var serviceImpl = {
                 sayHello(call, callback) {
-                    console.log("implementation called (test)")
+                    console.log("implementation called (test) with")
                     resolve();
                     let reply = new proto.jsTestService.HelloReply();
-                    reply.setMessage("message from server")
+                    reply.setMessage(`hello ${call.request.getName()}`)
                     callback(reply)
                 }
             }
