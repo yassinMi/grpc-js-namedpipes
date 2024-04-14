@@ -7,6 +7,8 @@ const protobuf = require("protobufjs");
 const messagesTransport = require("./transport_pb") //generated with package google-protobuf 
 const { GrpcDotNetNamedPipes } = require("./transport-proto");//generated with package protobufjs and protobufjs-cli
 const { EventEmitter } = require("stream");
+const { status } = require("@grpc/grpc-js");
+const { WriteTransaction } = require("./writeTransaction");
 
 
 //@ts-check
@@ -84,21 +86,74 @@ class NamedPipeServer {
 
                 let read_tm_count = 0
                 let payload;
+                /**
+                 * 
+                 * @returns response or undefined (unimplmented)
+                 */
+                let generateResponse =async ()=>{
+                    console.log(", current call: ",this.currentCall)
+                    let handeler = this.handlers[this.currentCall.path];
+                    if(handeler===undefined){
+                        return undefined
+                    }
+                    else{
+                        return  await handeler(payload);
+                    }
+                }
+                let sendResponse = async(responseOrUnimplmented)=>{
+                    //# handeling call and writing response
+                    if(responseOrUnimplmented===undefined){
+                        console.log("sendResponse (UNIMPLEMENTED)...")
+                        //write StatusCode.Unimplemented
+                        //and close
+                        let trailers = new proto.GrpcDotNetNamedPipes.Generated.Trailers();
+                        trailers.setStatusCode(status.UNIMPLEMENTED)
+                        let tm_trailers = new proto.GrpcDotNetNamedPipes.Generated.TransportMessage();
+                        tm_trailers.setTrailers(trailers);
+                        new WriteTransaction().addTransportMessage(tm_trailers)
+                        .writeTo(stream)
+                        stream.end();
+                    }
+                    else{
+                        console.log("sendResponse (ok)...")
+                        //is implemeted, generate and send reponse and close
+                        let trailers = new proto.GrpcDotNetNamedPipes.Generated.Trailers();
+                        trailers.setStatusCode(status.OK)
+                        let tm_trailers = new proto.GrpcDotNetNamedPipes.Generated.TransportMessage();
+                        tm_trailers.setTrailers(trailers);
+
+                        new WriteTransaction().addPayloadWithLeadingPayloadInfo(responseOrUnimplmented)
+                        .addTransportMessage(tm_trailers)
+                        .writeTo(stream);
+                        stream.end();
+                    }
+                    
+                }
                 let hndlTranportMessage =async (tm)=>{
                     if (tm.payloadInfo) {
                         payload = buffer.subarray(reader.pos, reader.pos + tm.payloadInfo.size);
                         reader.skip(tm.payloadInfo.size);
                         console.log("got payload: ", payload.toJSON())
-                        console.log(", current call: ",this.currentCall)
-                        var response = await this.handlers[this.currentCall.path](payload);
-                        stream.write(response);
+                        //# generate and send response (or unimplemented signal)
+                        console.log("generateResponse...")
+                        var response = await generateResponse();
+                        console.log("sendResponse ...")
+                        try {
+                            await sendResponse(response);
+                        }
+                        catch (err){
+                            console.log("sendResponse failed: ",err)
+                        }
+                        
+                        
                     }
                     else if(tm.requestInit){
                         this.currentCall={path:tm.requestInit.methodFullName,deadline:tm.requestInit.deadline}
                         console.log("recieved requestInit, current call: ",this.currentCall)
                     }
                     else if(tm.trailers){
-                        
+                     
+                        console.log("recieved trailers ", tm.trailers)
                     }
                 }
                 
@@ -248,20 +303,14 @@ class NamedPipeServer {
             else{
                 console.log("registering service method not implemented")
 
-                this.handlers[def.path] = async (request) => {
-
-
-
-                    console.log("service method not implemented")
-                    throw new Error("service method not implemented")
-                    //todo send the not implemented information
-                }
+               
             }
         })
     }
 
 
 }
+
 
 
 exports.NamedPipeServer = NamedPipeServer;

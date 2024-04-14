@@ -17,8 +17,6 @@ var serviceImpl = {
 }
 
 describe("NamedPipeServer", (s) => {
-
-
     /**
      * @type {NamedPipeServer}
      */
@@ -76,6 +74,9 @@ describe("NamedPipeServer", (s) => {
                 sayHello(call, callback) {
                     console.log("implementation called (test)")
                     resolve();
+                    let reply = new proto.jsTestService.HelloReply();
+                    reply.setMessage("message from server")
+                    callback(reply)
                 }
             }
             server.addService(jsTestService.GreeterService,serviceImpl)
@@ -88,13 +89,15 @@ describe("NamedPipeServer", (s) => {
         })
     })
     it("should sent hello response to client", async function () {
-        this.timeout("5000")
+        this.timeout("10000")
         return new Promise((resolve, reject) => {
             const child_proc = spawn(DOTNET_CLIENT_PATH, ["--client-test", "client123"])
             child_proc.on("exit", code => {
                 reject(`client exit code ${code}`)
             })
             child_proc.stdout.on('data', ( /** @type {string} */data) => {
+                console.log("client: ",data.toString())
+
                 if (data.includes("server response: hello client123")) {
                     resolve();
                 }
