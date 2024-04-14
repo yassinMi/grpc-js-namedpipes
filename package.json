@@ -4,7 +4,7 @@
   "description": "mainly designed to work with GrpcDotNetNamedPipes, enabling IPC between .NET and NodeJS apps",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "mocha"
   },
   "keywords": [
     "gRPC",
@@ -18,6 +18,11 @@
   "dependencies": {
     "@grpc/grpc-js": "^1.10.6",
     "google-protobuf": "^3.21.2",
-    "grpc": "^1.24.11"
+    "grpc": "^1.24.11",
+    "protobufjs": "^7.2.6"
+  },
+  "devDependencies": {
+    "chai": "^4.4.1",
+    "mocha": "^10.4.0"
   }
 }
