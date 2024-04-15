@@ -38,6 +38,7 @@ class NamedPipeServer {
      * @type {net.Server}
      */
     pipeServer;
+    //todo: add a ServerCallContext class to wrap the following call related state
     /**
      * @type {net.Socket}
      */
@@ -68,11 +69,10 @@ class NamedPipeServer {
         let expectingRemainingPayloadSize = 0;
         let len = -1;
 
-
         /**
-                 * 
-                 * @returns response or undefined (unimplmented)
-                 */
+        * 
+        * @returns response or undefined (unimplmented)
+        */
         let generateResponse = async () => {
             let handeler = this.handlers[this.currentCall.path];
             if (handeler === undefined) {
@@ -127,8 +127,8 @@ class NamedPipeServer {
                 .writeTo(stream)
             stream.end();
         }
-        let handlePayload=async()=>{
-            console.log("got payload: ", payload.toJSON())
+        let handlePayload = async () => {
+            console.log("handeling payload: ", payload.toJSON())
             //# generate and send response (or unimplemented signal)
             console.log("generateResponse...")
             let implementationEror = null;
@@ -166,7 +166,6 @@ class NamedPipeServer {
                     throw new Error("unexpected payload info while another payload is partially recieved")
                 }
                 payload = Buffer.alloc(0);
-
                 expectingRemainingPayloadSize = tm.payloadInfo.size;
                 if (tm.payloadInfo.isSamePacket) {
                     //throw new Error("not in same packet is not supported")
@@ -174,95 +173,64 @@ class NamedPipeServer {
                     reader.skip(payloaChuck.length);
                     payload = Buffer.concat([payload, payloaChuck]);
                     expectingRemainingPayloadSize -= payloaChuck.length;
-                    checkPayloadCompleted();
+                    checkPayloadCompleted();//todo: we probably don't need this check if inSamePacket means the full payload is included
                 }
-                else{
-                    this.packetsReader.expectPayload=tm.payloadInfo.size;
-
+                else {
+                    //making the reader handle payload reading internally, since it's not delimited with size
+                    this.packetsReader.expectPayload = tm.payloadInfo.size;
                 }
-
-                
-
-
-
             }
             else if (tm.requestInit) {
                 this.currentCall = { path: tm.requestInit.methodFullName, deadline: tm.requestInit.deadline }
                 console.log("recieved requestInit, current call: ", this.currentCall)
             }
             else if (tm.trailers) {
-
                 console.log("recieved trailers ", tm.trailers)
             }
         }
 
-        this.packetsReader.handleMessage=async(rawPacket)=>
-            {
-                currentRawPacket = rawPacket;
-                if (rawPacket.length > 0) {
-                    console.log("parsing packet of length ", rawPacket.length);
+        this.packetsReader.handleMessage = async (rawPacket) => {
+            currentRawPacket = rawPacket;
+            if (rawPacket.length > 0) {
+                console.log("parsing packet of length ", rawPacket.length);
+            }
+            else {
+                console.log("recieved empty packet", rawPacket.length);
+            }
+            reader = new protobuf.BufferReader(rawPacket)
+            let read_tm_count = 0
+            while (true) {
+                if (expectingRemainingPayloadSize > 0) {
+                    var payLoadReadBytes = Math.min(expectingRemainingPayloadSize, reader.len - reader.pos);
+                    let payloaChuck = rawPacket.subarray(reader.pos, Math.min(rawPacket.length, reader.pos + payLoadReadBytes));
+                    reader.skip(payLoadReadBytes);
+                    payload = Buffer.concat([payload, payloaChuck]);
+                    expectingRemainingPayloadSize -= payLoadReadBytes;
+                    checkPayloadCompleted();
+                }
+                let tm = GrpcDotNetNamedPipes.Generated.TransportMessage.decodeDelimited(reader);
+                console.log("read tm: ", tm)
+                read_tm_count++;
+                try {
+                    await hndlTranportMessage(tm)
+                } catch (error) {
+                    await sendError(error.message)
+                }
+                if (reader.pos < reader.len) {
+                    let left = reader.len - reader.pos;
                 }
                 else {
-                    console.log("recieved empty packet", rawPacket.length);
-                }
-                reader = new protobuf.BufferReader(rawPacket)
-                let read_tm_count = 0
-                while (true) {
-                    if (expectingRemainingPayloadSize > 0) {
-                        var payLoadReadBytes = Math.min(expectingRemainingPayloadSize, reader.len - reader.pos);
-                        let payloaChuck = rawPacket.subarray(reader.pos, Math.min(rawPacket.length, reader.pos + payLoadReadBytes));
-                        reader.skip(payLoadReadBytes);
-                        payload = Buffer.concat([payload, payloaChuck]);
-                        expectingRemainingPayloadSize -= payLoadReadBytes;
-                        checkPayloadCompleted();
-                    }
-                    let tm = GrpcDotNetNamedPipes.Generated.TransportMessage.decodeDelimited(reader);
-                    console.log("read tm: ", tm)
-                    read_tm_count++;
-                    try {
-                        await hndlTranportMessage(tm)
-                    } catch (error) {
-                        await sendError(error.message)
-                    }
-                    if (reader.pos < reader.len) {
-                        let left = reader.len - reader.pos;
-                        console.log("left bytes: ", left)
-                    }
-                    else {
-                        break;
-                    }
+                    break;
                 }
             }
-            this.packetsReader.handlePayload=async (readerObtainedPayload)=>{
-
-                payload = readerObtainedPayload;
-                await handlePayload();
-            }
+        }
+        this.packetsReader.handlePayload = async (readerObtainedPayload) => {
+            payload = readerObtainedPayload;//todo: simplify the flow and remove state variables
+            await handlePayload();
+        }
         stream.on("data", async (buffer) => {
-            console.log("raw data: ( "+buffer.length.toString()+")", buffer.toJSON());
-
-
-
+            console.log("raw data: (" + buffer.length.toString() + ")", buffer.toJSON());
             this.packetsReader.write(buffer);
-            
-            
-
-
-
-            //let user_json = JSON.parse(user_data);
-
-
-
-
-            //var m = new  proto.GrpcDotNetNamedPipes.Generated.TransportMessage()
-            //var red = new jspb.BinaryReader(buffer.buffer,0,buffer.readInt32LE(0));
-            //proto.GrpcDotNetNamedPipes.Generated.TransportMessage.deserializeBinaryFromReader(m,red)
-
-            //console.log(m.getRequestInit().getMethodfullname())
-
-            /*stream.write("respone string",(err)=>{
-                console.log("written with error:",err);
-            })*/
         });
 
         stream.on("end", () => {
@@ -342,14 +310,10 @@ class NamedPipeServer {
         Object.keys(service).forEach(key => {
             let def = service[key]
             let implementationMethod = implementation[key] || implementation[def.path] || undefined;
-
             if (implementationMethod !== undefined) {
                 console.log("refistering service call ", def.path)
-
                 this.handlers[def.path] = (request) => {
-
                     return new Promise((resolve, reject) => {
-
                         var parsed = def.requestDeserialize(request);
                         let call = {
                             request: parsed,
@@ -357,7 +321,6 @@ class NamedPipeServer {
                             getPeer: null,
                             sendMetadata: null
                         }
-
                         let callback = (response) => {
                             console.log("implementer returned reqponse ", response)
                             var responsebytes = def.responseSerialize(response);
@@ -365,12 +328,9 @@ class NamedPipeServer {
                             console.log("responding with response bytes ", responsebytes.toJSON())
                             resolve(responsebytes);
                         }
-
-
                         console.log("calling impl with request parsed ", call.request)
                         // @ts-ignore
                         let res = implementationMethod.call(implementation, call, callback)
-
 
                     })
 
@@ -380,8 +340,6 @@ class NamedPipeServer {
             }
             else {
                 console.log("registering service method not implemented")
-
-
             }
         })
     }
