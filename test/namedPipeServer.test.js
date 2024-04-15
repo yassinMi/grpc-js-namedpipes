@@ -4,7 +4,7 @@ const { NamedPipeServer } = require("../NamedPipeServer")
 const { spawn } = require("child_process")
 const path = require("path")
 const { resolve } = require("path")
-const jsTestService = require("../jsTestService_grpc_pb");
+const jsTestService = require("./proto/gen/jsTestService_grpc_pb");
 
 const TEST_PIPE_MANE = "TEST_PIPE"
 const DOTNET_CLIENT_PATH = String.raw`F:\epicMyth-tmp-6-2022\dev\notMyCode\packages src\grpc-dotnet-namedpipes\GrpcDotNetNamedPipes.ConsoleApp\bin\Debug\net6.0\GrpcDotNetNamedPipes.ConsoleApp.exe`
@@ -72,7 +72,7 @@ describe("NamedPipeServer", (s) => {
 
             var serviceImpl = {
                 sayHello(call, callback) {
-                    console.log("implementation called (test) with")
+                    console.log("implementation called (test) with"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           )
                     resolve();
                     let reply = new proto.jsTestService.HelloReply();
                     reply.setMessage(`hello ${call.request.getName()}`)
