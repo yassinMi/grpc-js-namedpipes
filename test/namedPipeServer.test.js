@@ -7,8 +7,10 @@ const { resolve } = require("path")
 const jsTestService = require("./proto/gen/jsTestService_grpc_pb");
 
 const TEST_PIPE_MANE = "TEST_PIPE"
-const DOTNET_CLIENT_PATH = String.raw`F:\epicMyth-tmp-6-2022\dev\notMyCode\packages src\grpc-dotnet-namedpipes\GrpcDotNetNamedPipes.ConsoleApp\bin\Debug\net6.0\GrpcDotNetNamedPipes.ConsoleApp.exe`
-
+const DOTNET_CLIENT_PATH = process.env.DOTNET_CLIENT_PATH;
+if(!DOTNET_CLIENT_PATH || !DOTNET_CLIENT_PATH.toLowerCase().endsWith(".exe")){
+    throw new Error("DOTNET_CLIENT_PATH is not set or is invalid")
+}
 
 var serviceImpl = {
     sayHello(call, callback) {
@@ -103,6 +105,11 @@ describe("NamedPipeServer", (s) => {
                 }
             });
         })
+    })
+
+    after(()=>{
+        if(server&&server.pipeServer&&server.pipeServer.listening)
+        server.pipeServer.close();
     })
 })
 

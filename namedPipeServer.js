@@ -91,12 +91,14 @@ class NamedPipeServer {
                  * @returns response or undefined (unimplmented)
                  */
                 let generateResponse =async ()=>{
-                    console.log(", current call: ",this.currentCall)
                     let handeler = this.handlers[this.currentCall.path];
                     if(handeler===undefined){
+                        console.log("handeler not found for call: ",this.currentCall.path)
+
                         return undefined
                     }
                     else{
+                        console.log("awaiting handeler  for call: ",this.currentCall.path)
                         return await handeler(payload);
                     }
                 }
@@ -252,21 +254,28 @@ class NamedPipeServer {
      */
     start(callback) {
         if(!this.pipeName){
-            throw new Error("this method should only be used when creating the server with a pipe name")
+            callback("this method should only be used when creating the server with a pipe name")
+            return;
         }
         if(Object.keys(this.handlers).length===0){
-            throw new Error("one or more service methods must be registered")
+            callback("one or more service methods must be registered")
+            return;
         }
         if(this.pipeServer){
             if(this.pipeServer.listening){
-                throw new Error("server already listening")
+                callback("server already listening")
+                return;
             }
             else{
+                try {
+                    this.pipeServer.listen(`\\\\.\\pipe\\${this.pipeName}`, (err) => {
+                        console.log("listen cb");
+                        callback(err);
+                    });
+                } catch (error) {
+                    callback(error);
+                }
                 
-                this.pipeServer.listen(`\\\\.\\pipe\\${this.pipeName}`, (err) => {
-                    console.log("listen cb");
-                    callback(err);
-                });
             }
         }
     }
@@ -312,8 +321,7 @@ class NamedPipeServer {
 
                         console.log("calling impl with request parsed ", call.request)
                         // @ts-ignore
-                        implementationMethod(call,callback)
-                        
+                        let res = implementationMethod.call(implementation,call,callback)
                         
                         
                     })
