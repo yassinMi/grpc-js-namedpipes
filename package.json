@@ -1,11 +1,11 @@
 {
   "name": "grpc-js-namedpipes",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "mainly designed to work with GrpcDotNetNamedPipes, enabling IPC between .NET and NodeJS apps",
   "main": "index.js",
   "scripts": {
     "test": "mocha",
-    "generate:types":"tsc index.js namedPipeServer.js --declaration --allowJs --emitDeclarationOnly",
+    "generate:types": "tsc index.js namedPipeServer.js --declaration --allowJs --emitDeclarationOnly",
     "generate:proto": "grpc_tools_node_protoc --js_out=import_style=commonjs,binary:./proto/gen --grpc_out=grpc_js:./proto/gen -I ./proto ./proto/*.proto",
     "generate:test:proto": "grpc_tools_node_protoc --js_out=import_style=commonjs,binary:./test/proto/gen --grpc_out=grpc_js:./test/proto/gen -I ./test/proto ./test/proto/*.proto",
     "generate:protobuf": "pbjs -t static-module -w commonjs -o proto/gen/messages.js ./proto/*.proto",
