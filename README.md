@@ -8,7 +8,7 @@ inter-process communication between .NET and Node.js over Named Pipes.
 # Features
 - [x] NodeJs Server Implementation
   - [x] Unary
-  - [ ] Server Streaming
+  - [x] Server Streaming
   - [ ] Client Streaming
   - [ ] Bidirectional Streaming
 - [ ] NodeJs Client Implementation
@@ -26,7 +26,7 @@ inter-process communication between .NET and Node.js over Named Pipes.
 function sayHello(call, callback) {
     var reply = new greeterMessages.HelloReply();
     reply.setMessage('Hello ' + call.request.getName());
-    callback(reply);
+    callback(null, reply);
 }
 
 var namedPipeServer = new NamedPipeServer("MY_NAMED_PIPE");
