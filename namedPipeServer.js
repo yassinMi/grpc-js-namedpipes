@@ -1,6 +1,6 @@
 //@ts-check
 const { ServerUnaryCallImpl } = require("@grpc/grpc-js/build/src/server-call");
-const { ServerUnaryCall } = require("grpc");
+const { ServerUnaryCall, ServerWritableStream } = require("grpc");
 const grpc = require("grpc");
 const net = require("net");
 const protobuf = require("protobufjs");
@@ -10,6 +10,7 @@ const { EventEmitter } = require("stream");
 const { status } = require("@grpc/grpc-js");
 const { WriteTransaction } = require("./writeTransaction");
 const { StreamPacketsReader } = require("./streamPacketsReader");
+const { ServerUnaryCallNP, ServerCallContext, ServerWritableStreamNP } = require("./callContext");
 
 
 //@ts-check
@@ -24,13 +25,10 @@ class NamedPipeServer {
             this.pipeName = pipeName;
             let pipeserver = net.createServer();
             this.bind(pipeserver);
-
         }
         else {
 
         }
-
-
     }
 
 
@@ -38,216 +36,14 @@ class NamedPipeServer {
      * @type {net.Server}
      */
     pipeServer;
-    //todo: add a ServerCallContext class to wrap the following call related state
-    /**
-     * @type {net.Socket}
-     */
-    current_socket;
 
     /**
-     * @type {{path:string,deadline:Date}}
-     */
-    currentCall;
-    /**
-     * @param {net.Socket} stream
-     */
-    /**
-     * @type {StreamPacketsReader}
-     */
-    packetsReader;
+    * @param {net.Socket} stream
+    */
     handleConnection(stream) {
+        this.currentCallContext = new ServerCallContext(this, stream)
         console.debug("Server: new connection");
-        this.packetsReader = new StreamPacketsReader();
-        this.current_socket = stream;
-        let payload;
-
-        /**
-         * @type {Buffer}
-         */
-        let currentRawPacket;
-        let reader;//reads currentRawPacket and extracts parsed messages
-        let expectingRemainingPayloadSize = 0;
-        let len = -1;
-
-        /**
-        * 
-        * @returns response or undefined (unimplmented)
-        */
-        let generateResponse = async () => {
-            let handeler = this.handlers[this.currentCall.path];
-            if (handeler === undefined) {
-                console.log("handeler not found for call: ", this.currentCall.path)
-
-                return undefined
-            }
-            else {
-                console.log("awaiting handeler  for call: ", this.currentCall.path)
-                return await handeler(payload);
-            }
-        }
-        let sendResponse = async (responseOrUnimplmented) => {
-            //# handeling call and writing response
-            if (responseOrUnimplmented === undefined) {
-                console.log("sendResponse (UNIMPLEMENTED)...")
-                //write StatusCode.Unimplemented
-                //and close
-                let trailers = new proto.GrpcDotNetNamedPipes.Generated.Trailers();
-                trailers.setStatusCode(status.UNIMPLEMENTED)
-                let tm_trailers = new proto.GrpcDotNetNamedPipes.Generated.TransportMessage();
-                tm_trailers.setTrailers(trailers);
-                new WriteTransaction().addTransportMessage(tm_trailers)
-                    .writeTo(stream)
-                stream.end();
-            }
-            else {
-                console.log("sendResponse (ok)...")
-                //is implemeted, generate and send reponse and close
-                let trailers = new proto.GrpcDotNetNamedPipes.Generated.Trailers();
-                trailers.setStatusCode(status.OK)
-                let tm_trailers = new proto.GrpcDotNetNamedPipes.Generated.TransportMessage();
-                tm_trailers.setTrailers(trailers);
-
-                new WriteTransaction().addPayloadWithLeadingPayloadInfo(responseOrUnimplmented)
-                    .addTransportMessage(tm_trailers)
-                    .writeTo(stream);
-                stream.end();
-            }
-
-        }
-        let sendError = async (errorString) => {
-            console.log("sendEror ...")
-            //write StatusCode.Unimplemented
-            //and close
-            let trailers = new proto.GrpcDotNetNamedPipes.Generated.Trailers();
-            trailers.setStatusCode(status.INTERNAL)
-            trailers.setStatusDetail(errorString)
-            let tm_trailers = new proto.GrpcDotNetNamedPipes.Generated.TransportMessage();
-            tm_trailers.setTrailers(trailers);
-            new WriteTransaction().addTransportMessage(tm_trailers)
-                .writeTo(stream)
-            stream.end();
-        }
-        let handlePayload = async () => {
-            console.log("handeling payload: ", payload.toJSON())
-            //# generate and send response (or unimplemented signal)
-            console.log("generateResponse...")
-            let implementationEror = null;
-            try {
-                var response = await generateResponse();
-            } catch (error) {
-                implementationEror = error?.message || error?.toString || "unknown";
-            }
-
-            console.log("sendResponse ...")
-            try {
-                if (implementationEror !== null)
-                    await sendError(implementationEror);
-                else
-                    await sendResponse(response);
-            }
-            catch (err) {
-                console.log("sendResponse failed: ", err)
-            }
-
-        }
-        let checkPayloadCompleted = async () => {
-
-            if (expectingRemainingPayloadSize == 0) {
-                //end of payload reached
-                await handlePayload();
-            }
-            else {
-                console.log("expecting more payload bytes: ", expectingRemainingPayloadSize)
-            }
-        }
-        let hndlTranportMessage = async (tm) => {
-            if (tm.payloadInfo) {
-                if (expectingRemainingPayloadSize > 0) {
-                    throw new Error("unexpected payload info while another payload is partially recieved")
-                }
-                payload = Buffer.alloc(0);
-                expectingRemainingPayloadSize = tm.payloadInfo.size;
-                if (tm.payloadInfo.isSamePacket) {
-                    //throw new Error("not in same packet is not supported")
-                    let payloaChuck = currentRawPacket.subarray(reader.pos, Math.min(currentRawPacket.length, reader.pos + tm.payloadInfo.size));
-                    reader.skip(payloaChuck.length);
-                    payload = Buffer.concat([payload, payloaChuck]);
-                    expectingRemainingPayloadSize -= payloaChuck.length;
-                    checkPayloadCompleted();//todo: we probably don't need this check if inSamePacket means the full payload is included
-                }
-                else {
-                    //making the reader handle payload reading internally, since it's not delimited with size
-                    this.packetsReader.expectPayload = tm.payloadInfo.size;
-                }
-            }
-            else if (tm.requestInit) {
-                this.currentCall = { path: tm.requestInit.methodFullName, deadline: tm.requestInit.deadline }
-                console.log("recieved requestInit, current call: ", this.currentCall)
-            }
-            else if (tm.trailers) {
-                console.log("recieved trailers ", tm.trailers)
-            }
-        }
-
-        this.packetsReader.handleMessage = async (rawPacket) => {
-            currentRawPacket = rawPacket;
-            if (rawPacket.length > 0) {
-                console.log("parsing packet of length ", rawPacket.length);
-            }
-            else {
-                console.log("recieved empty packet", rawPacket.length);
-            }
-            reader = new protobuf.BufferReader(rawPacket)
-            let read_tm_count = 0
-            while (true) {
-                if (expectingRemainingPayloadSize > 0) {
-                    var payLoadReadBytes = Math.min(expectingRemainingPayloadSize, reader.len - reader.pos);
-                    let payloaChuck = rawPacket.subarray(reader.pos, Math.min(rawPacket.length, reader.pos + payLoadReadBytes));
-                    reader.skip(payLoadReadBytes);
-                    payload = Buffer.concat([payload, payloaChuck]);
-                    expectingRemainingPayloadSize -= payLoadReadBytes;
-                    checkPayloadCompleted();
-                }
-                let tm = GrpcDotNetNamedPipes.Generated.TransportMessage.decodeDelimited(reader);
-                console.log("read tm: ", tm)
-                read_tm_count++;
-                try {
-                    await hndlTranportMessage(tm)
-                } catch (error) {
-                    await sendError(error.message)
-                }
-                if (reader.pos < reader.len) {
-                    let left = reader.len - reader.pos;
-                }
-                else {
-                    break;
-                }
-            }
-        }
-        this.packetsReader.handlePayload = async (readerObtainedPayload) => {
-            payload = readerObtainedPayload;//todo: simplify the flow and remove state variables
-            await handlePayload();
-        }
-        stream.on("data", async (buffer) => {
-            console.log("raw data: (" + buffer.length.toString() + ")", buffer.toJSON());
-            this.packetsReader.write(buffer);
-        });
-
-        stream.on("end", () => {
-            console.log("Stream ended");
-        });
-        stream.on("close", () => {
-            console.log("Stream close");
-        })
-        stream.on("drain", () => {
-            console.log("Stream drain");
-        })
-        stream.on("connect", () => {
-            console.log("Stream connect");
-        })
-
     }
-
 
     /**
      * 
@@ -296,7 +92,11 @@ class NamedPipeServer {
         }
     }
     /**
-     * @type {{[k in string]:(request:Buffer)=>Promise<Buffer>;}}
+     * @typedef  {(callContext:ServerCallContext)=>Promise<void>} HandlerNP
+     */
+
+    /**
+     * @type {{[k in string]:HandlerNP;}}
      */
     handlers = {};
 
@@ -311,30 +111,24 @@ class NamedPipeServer {
             let def = service[key]
             let implementationMethod = implementation[key] || implementation[def.path] || undefined;
             if (implementationMethod !== undefined) {
+                implementationMethod = implementationMethod.bind(implementation);
                 console.log("refistering service call ", def.path)
-                this.handlers[def.path] = (request) => {
-                    return new Promise((resolve, reject) => {
-                        var parsed = def.requestDeserialize(request);
-                        let call = {
-                            request: parsed,
-                            cancelled: null,
-                            getPeer: null,
-                            sendMetadata: null
-                        }
-                        let callback = (response) => {
-                            console.log("implementer returned reqponse ", response)
-                            var responsebytes = def.responseSerialize(response);
-                            console.log("reqponse serialized ", responsebytes.length)
-                            console.log("responding with response bytes ", responsebytes.toJSON())
-                            resolve(responsebytes);
-                        }
-                        console.log("calling impl with request parsed ", call.request)
+                var callType = grpc.methodTypes.UNARY;
+                if (def.responseStream) {
+                    callType = def.requestStream ? grpc.methodTypes.BIDI_STREAMING : grpc.methodTypes.SERVER_STREAMING
+                }
+                else {
+                    callType = def.requestStream ? grpc.methodTypes.CLIENT_STREAMING : grpc.methodTypes.UNARY
+                }
+                switch (callType) {
+                    case grpc.methodTypes.UNARY:
                         // @ts-ignore
-                        let res = implementationMethod.call(implementation, call, callback)
-
-                    })
-
-
+                        this.handlers[def.path] = this._createUnaryHandler(def, implementationMethod)
+                        break;
+                    case grpc.methodTypes.SERVER_STREAMING:
+                        // @ts-ignore
+                        this.handlers[def.path] = this._createServerStreamingHandler(def, implementationMethod)
+                        break;
                 }
 
             }
@@ -344,9 +138,125 @@ class NamedPipeServer {
         })
     }
 
+    /**
+     * @template TRequest
+     * @template TResponse
+     * @param {grpc.MethodDefinition<TRequest,TResponse>} def 
+     * @param {grpc.handleUnaryCall<TRequest,TResponse>} implementationMethod 
+     * @returns {HandlerNP}
+     */
+    _createUnaryHandler(def, implementationMethod) {
+        return (callContext) => {
+            return new Promise((resolve, reject) => {
+                var parsed = def.requestDeserialize(callContext.payload);
+                /**
+                 * @type {ServerUnaryCall}
+                 */
+                let call = new ServerUnaryCallNP();
+                call.request = parsed;
+                call.cancelled = false;
+                call.metadata = new grpc.Metadata();
+                /**
+                 * 
+                 * @type {grpc.sendUnaryData<TResponse>} 
+                 */
+                let callback = (error, response, trailers, flags) => {
+                    console.log("err provided", error)
 
+                    if (error === null && response !== null) {
+                        var responsebytes = def.responseSerialize(response);
+                        callContext.sendResponse(responsebytes)
+                        resolve();
+                    }
+                    else if (error !== null && response === null) {
+                        if (trailers === undefined)
+                            trailers = error.metadata;
+                        if ((trailers !== undefined) || (error.code !== undefined) || (error.details !== undefined)) {
+                            var trailers_tm_w = new proto.GrpcDotNetNamedPipes.Generated.TransportMessage();
+                            var trailers_tm = new proto.GrpcDotNetNamedPipes.Generated.Trailers();
+                            if (trailers !== undefined) {
+                                var md_list = []
+                                var map = JSON.parse(JSON.stringify(trailers.getMap()))
+                                Object.keys(map).forEach((k) => {
+                                    var val = map[k]
+                                    if (val === undefined) return;
+                                    var entry = new proto.GrpcDotNetNamedPipes.Generated.MetadataEntry()
+                                    entry.setName(k)
+                                    if (typeof val === "string")
+                                        entry.setValuestring(val);
+                                    else if (Buffer.isBuffer(val)) {
+                                        entry.setValuebytes(val);
+                                    }
+                                    else {
+                                        console.log("unknown entry type")
+                                        return
+                                    }
+
+                                    md_list.push(entry)
+                                })
+                                trailers_tm.setMetadataList(md_list);
+
+                                trailers_tm_w.setTrailers(trailers_tm)
+                            }
+                            trailers_tm.setStatusCode(error.code || status.UNKNOWN);
+                            trailers_tm.setStatusDetail(error.details)
+                            new WriteTransaction()
+                                .addTransportMessage(trailers_tm_w)
+                                .writeTo(callContext.current_socket)
+                        }
+                        else {
+                            reject(error)//handles a simple error case with UNKNOWN
+                        }
+
+                    }
+                }
+                console.log("calling impl with request parsed ", call.request)
+                // @ts-ignore
+                var res = implementationMethod(call, callback)
+                if (res instanceof Promise) {
+                    res.then(resolve)
+                        .catch(reject)
+                }
+
+            })
+        }
+    }
+
+
+    /**
+     * @template TRequest
+     * @template TResponse
+     * @param {grpc.MethodDefinition<TRequest,TResponse>} def 
+     * @param {grpc.handleServerStreamingCall<TRequest,TResponse>} implementationMethod 
+     * @returns {HandlerNP}
+     */
+    _createServerStreamingHandler(def, implementationMethod) {
+        return (callContext) => {
+            return new Promise((resolve, reject) => {
+                var parsed = def.requestDeserialize(callContext.payload);
+                /**
+                 * @type {ServerWritableStream}
+                 */
+                let call = new ServerWritableStreamNP(callContext, def);
+                call.request = parsed;
+                call.cancelled = false;
+                call.metadata = new grpc.Metadata();
+
+                console.log("calling impl with writeable stream  ", call.request)
+                // @ts-ignore
+                var res = implementationMethod(call)
+                if (res instanceof Promise) {
+                    console.log("fun " + def.path + " is async")
+                    res.then(resolve)
+                        .catch(reject)
+                }
+            })
+        }
+    }
 }
 
 
 
 exports.NamedPipeServer = NamedPipeServer;
+
+

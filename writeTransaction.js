@@ -30,7 +30,7 @@ class WriteTransaction {
 
         len.writeInt32LE(this.buffer.length)
         //# writing transaction data
-        console.log("writing transaction lenght ", this.buffer.length)
+        console.log("writing transaction length ", this.buffer.length)
         stream.write(len);
         
         console.log("writing transaction data ", this.buffer.toJSON())
@@ -48,7 +48,7 @@ class WriteTransaction {
         var writer = new protobuf.BufferWriter()
         var serialized = tm.serializeBinary();
         var messageType = tm.hasHeaders()?"header":tm.hasPayloadInfo()?"pi":tm.hasRequestControl()?"rc":tm.hasRequestInit()?"ri":tm.hasTrailers()?"trailers":"unknown types"
-        console.log("writing delimited transport message (bytes) ",messageType,serialized.length)
+        //console.log("writing delimited transport message (bytes) ",messageType,serialized.length)
         
         //writer.int32(serialized.length)
         //writer.bytes(serialized);

@@ -30,7 +30,7 @@ class StreamPacketsReader {
      * @param {Buffer} bytes 
      */
     async write(bytes) {
-        console.log(`entered write, state is ${this.readerState}, expected payload bytes=${this.expectPayload}, expected packet bytes=${this.ExpectedMessageSize - this.ReadMessageSize}`, this.readerState)
+        //console.log(`entered write, state is ${this.readerState}, expected payload bytes=${this.expectPayload}, expected packet bytes=${this.ExpectedMessageSize - this.ReadMessageSize}`, this.readerState)
         var messages = []
         let pos = 0;
         while (bytes.length > pos) {
@@ -72,7 +72,7 @@ class StreamPacketsReader {
                 }
             }
             else if (this.readerState == ReaderState.READING_PAYLOAD) {
-                console.log(`in reading payload state, pos=${pos}, remaining bytes=${this.expectPayload}, written bytes=${this.PayloadBytes.length}`)
+                //console.log(`in reading payload state, pos=${pos}, remaining bytes=${this.expectPayload}, written bytes=${this.PayloadBytes.length}`)
                 var sizeToBeRead = Math.min(bytes.length - pos, this.expectPayload);
                 let plChunk = bytes.subarray(pos, pos + sizeToBeRead);
                 this.PayloadBytes = Buffer.concat([this.PayloadBytes, plChunk])
@@ -90,7 +90,6 @@ class StreamPacketsReader {
                 }
             }
         }
-        console.log("end of write fn")
         return messages;
 
     }
