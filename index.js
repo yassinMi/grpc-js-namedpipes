@@ -1,4 +1,4 @@
-const { NamedPipeServer } = require("./NamedPipeServer")
+const { NamedPipeServer } = require("./src/NamedPipeServer")
 
 module.exports={
     NamedPipeServer

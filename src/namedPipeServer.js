@@ -4,13 +4,29 @@ const { ServerUnaryCall, ServerWritableStream } = require("grpc");
 const grpc = require("grpc");
 const net = require("net");
 const protobuf = require("protobufjs");
-const messagesTransport = require("./proto/gen/transport_pb") //generated with package google-protobuf 
-const { GrpcDotNetNamedPipes } = require("./proto/gen/messages");//generated with package protobufjs and protobufjs-cli
+const messagesTransport = require("../proto/gen/transport_pb") //generated with package google-protobuf 
+const GrpcDotNetNamedPipesMsgs = require("../proto/gen/messages");//generated with package protobufjs and protobufjs-cli
 const { EventEmitter } = require("stream");
-const { status } = require("@grpc/grpc-js");
+const { status  } = require("@grpc/grpc-js");
 const { WriteTransaction } = require("./writeTransaction");
 const { StreamPacketsReader } = require("./streamPacketsReader");
 const { ServerUnaryCallNP, ServerCallContext, ServerWritableStreamNP } = require("./callContext");
+
+   /**
+     * adds support for promise
+     * @module
+     * @template RequestType
+     * @template ResponseType
+     * @typedef {(call: ServerWritableStream<RequestType, ResponseType>) => void|Promise} handleServerStreamingCallNP
+     */
+
+     /**
+     * adds support for promise
+     * @module
+     * @template RequestType
+     * @template ResponseType
+     * @typedef {(call: ServerUnaryCall<RequestType>, callback: grpc.sendUnaryData<ResponseType>) => void|Promise} handleUnaryCallNP
+     */
 
 
 //@ts-check
@@ -142,7 +158,7 @@ class NamedPipeServer {
      * @template TRequest
      * @template TResponse
      * @param {grpc.MethodDefinition<TRequest,TResponse>} def 
-     * @param {grpc.handleUnaryCall<TRequest,TResponse>} implementationMethod 
+     * @param {handleUnaryCallNP<TRequest,TResponse>} implementationMethod 
      * @returns {HandlerNP}
      */
     _createUnaryHandler(def, implementationMethod) {
@@ -222,12 +238,12 @@ class NamedPipeServer {
         }
     }
 
-
+ 
     /**
      * @template TRequest
      * @template TResponse
      * @param {grpc.MethodDefinition<TRequest,TResponse>} def 
-     * @param {grpc.handleServerStreamingCall<TRequest,TResponse>} implementationMethod 
+     * @param {handleServerStreamingCallNP<TRequest,TResponse>} implementationMethod 
      * @returns {HandlerNP}
      */
     _createServerStreamingHandler(def, implementationMethod) {
@@ -237,6 +253,7 @@ class NamedPipeServer {
                 /**
                  * @type {ServerWritableStream}
                  */
+                // @ts-ignore
                 let call = new ServerWritableStreamNP(callContext, def);
                 call.request = parsed;
                 call.cancelled = false;

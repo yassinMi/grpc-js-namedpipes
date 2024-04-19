@@ -1,9 +1,8 @@
 
 //@ts-check
-const { default: ByteBuffer } = require("bytebuffer");
 const net = require("net");
 const protobuf  = require("protobufjs");
-const { GrpcDotNetNamedPipes } = require("./proto/gen/messages");//generated with package protobufjs and protobufjs-cli
+const { GrpcDotNetNamedPipes } = require("../proto/gen/messages");//generated with package protobufjs and protobufjs-cli
 
 class WriteTransaction {
 

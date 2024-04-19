@@ -1,6 +1,7 @@
 node_modules/
 gen/
 *.d.ts
+*.d.ts.map
 *.yass/
 *.yass.*
 *.yasscmd 

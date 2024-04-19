@@ -2,13 +2,13 @@
 const net = require("net")
 const protobuf = require("protobufjs");
 const { Writable } = require("stream");
-const messagesTransport = require("./proto/gen/transport_pb") //generated with package google-protobuf 
-const { GrpcDotNetNamedPipes } = require("./proto/gen/messages");//generated with package protobufjs and protobufjs-cli
+const messagesTransport = require("../proto/gen/transport_pb") //generated with package google-protobuf 
+const { GrpcDotNetNamedPipes } = require("../proto/gen/messages");//generated with package protobufjs and protobufjs-cli
 const { EventEmitter } = require("stream");
 const { status, Metadata } = require("@grpc/grpc-js");
 const { WriteTransaction } = require("./writeTransaction");
 const { StreamPacketsReader } = require("./streamPacketsReader");
-const { NamedPipeServer } = require("./NamedPipeServer");
+const { NamedPipeServer } = require("./namedPipeServer");
 
 class ServerCallContext {
     /**
@@ -285,6 +285,7 @@ class ServerWritableStreamNP extends Writable {
      * @param {({(er:Error|null|undefined):void})|undefined} cb
      * @returns {boolean}
      */
+    // @ts-ignore
     write(chunk, cb) {
 
 
@@ -294,6 +295,7 @@ class ServerWritableStreamNP extends Writable {
             .writeTo(this.callContext.current_socket);
         return true
     }
+    // @ts-ignore
     end() {
         var msg = new proto.GrpcDotNetNamedPipes.Generated.TransportMessage();
         var trailers = new proto.GrpcDotNetNamedPipes.Generated.Trailers();

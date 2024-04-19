@@ -1,4 +1,4 @@
-const {NamedPipeServer} = require("../namedPipeServer")
+const {NamedPipeServer} = require("../src/namedPipeServer")
 const { spawn } = require("child_process")
 const TEST_PIPE_MANE = "TEST_PIPE"
 const DOTNET_CLIENT_PATH = process.env.DOTNET_CLIENT_PATH;

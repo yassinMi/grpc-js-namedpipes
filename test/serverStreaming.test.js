@@ -1,6 +1,6 @@
 //@ts-check
 const { expect } = require("chai")
-const { NamedPipeServer } = require("../NamedPipeServer")
+const { NamedPipeServer } = require("../src/namedPipeServer")
 const { spawn } = require("child_process")
 const path = require("path")
 const { resolve } = require("path")

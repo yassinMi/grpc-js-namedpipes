@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "mocha",
-    "generate:types": "tsc index.js namedPipeServer.js --declaration --allowJs --emitDeclarationOnly",
+    "generate:types": "tsc index.js namedPipeServer.js --declaration --allowJs --outDir=dist",
     "generate:proto": "grpc_tools_node_protoc --js_out=import_style=commonjs,binary:./proto/gen --grpc_out=grpc_js:./proto/gen -I ./proto ./proto/*.proto",
     "generate:test:proto": "grpc_tools_node_protoc --js_out=import_style=commonjs,binary:./test/proto/gen --grpc_out=grpc_js:./test/proto/gen -I ./test/proto ./test/proto/*.proto",
     "generate:protobuf": "pbjs -t static-module -w commonjs -o proto/gen/messages.js ./proto/*.proto",
@@ -29,5 +29,11 @@
   "devDependencies": {
     "chai": "^4.4.1",
     "mocha": "^10.4.0"
-  }
+  },
+  "types": "types/",
+  "files": [
+    "types",
+    "src",
+    "proto/gen"
+  ]
 }
