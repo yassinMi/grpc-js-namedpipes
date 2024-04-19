@@ -1,6 +1,6 @@
 {
   "name": "grpc-js-namedpipes",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "mainly designed to work with GrpcDotNetNamedPipes, enabling IPC between .NET and NodeJS apps",
   "main": "index.js",
   "scripts": {
