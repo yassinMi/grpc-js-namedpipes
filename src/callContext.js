@@ -2,8 +2,8 @@
 const net = require("net")
 const protobuf = require("protobufjs");
 const { Writable } = require("stream");
-const messagesTransport = require("../proto/gen/transport_pb") //generated with package google-protobuf 
-const { GrpcDotNetNamedPipes } = require("../proto/gen/messages");//generated with package protobufjs and protobufjs-cli
+const messagesTransport = require("./gen/transport_pb") //generated with package google-protobuf 
+const { GrpcDotNetNamedPipes } = require("./gen/messages");//generated with package protobufjs and protobufjs-cli
 const { EventEmitter } = require("stream");
 const { status, Metadata } = require("@grpc/grpc-js");
 const { WriteTransaction } = require("./writeTransaction");

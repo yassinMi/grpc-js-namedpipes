@@ -4,13 +4,17 @@ const { ServerUnaryCall, ServerWritableStream } = require("grpc");
 const grpc = require("grpc");
 const net = require("net");
 const protobuf = require("protobufjs");
-const messagesTransport = require("../proto/gen/transport_pb") //generated with package google-protobuf 
-const GrpcDotNetNamedPipesMsgs = require("../proto/gen/messages");//generated with package protobufjs and protobufjs-cli
+const messagesTransport = require("./gen/transport_pb") //generated with package google-protobuf 
+const GrpcDotNetNamedPipesMsgs = require("./gen/messages");//generated with package protobufjs and protobufjs-cli
 const { EventEmitter } = require("stream");
 const { status  } = require("@grpc/grpc-js");
 const { WriteTransaction } = require("./writeTransaction");
 const { StreamPacketsReader } = require("./streamPacketsReader");
 const { ServerUnaryCallNP, ServerCallContext, ServerWritableStreamNP } = require("./callContext");
+
+    /**
+     * @typedef  {(callContext:ServerCallContext)=>Promise<void>} HandlerNP
+     */
 
    /**
      * adds support for promise
@@ -29,25 +33,31 @@ const { ServerUnaryCallNP, ServerCallContext, ServerWritableStreamNP } = require
      */
 
 
-//@ts-check
 class NamedPipeServer {
     /**
      *  
-     * @param {string|undefined} pipeName 
+     * @param {string?} pipeName_ 
      * if a pipeName is specified, the server will be created internally and no need to call bind after
      */
-    constructor(pipeName) {
-        if (pipeName) {
-            this.pipeName = pipeName;
+    constructor(pipeName_) {
+        if (pipeName_) {
+            this.pipeName = pipeName_;
             let pipeserver = net.createServer();
             this.bind(pipeserver);
         }
         else {
 
+            this.pipeName=null;
         }
     }
 
 
+    /**
+     * 
+     * @type {string?}
+     * 
+     */
+    pipeName;
     /**
      * @type {net.Server}
      */
@@ -55,6 +65,7 @@ class NamedPipeServer {
 
     /**
     * @param {net.Socket} stream
+    * @returns {void}
     */
     handleConnection(stream) {
         this.currentCallContext = new ServerCallContext(this, stream)
@@ -64,6 +75,7 @@ class NamedPipeServer {
     /**
      * 
      * @param {net.Server} server 
+     * @returns {void}
      */
     bind(server) {
 
@@ -107,10 +119,7 @@ class NamedPipeServer {
             }
         }
     }
-    /**
-     * @typedef  {(callContext:ServerCallContext)=>Promise<void>} HandlerNP
-     */
-
+    
     /**
      * @type {{[k in string]:HandlerNP;}}
      */

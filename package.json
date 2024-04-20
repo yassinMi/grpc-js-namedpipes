@@ -2,11 +2,11 @@
   "name": "grpc-js-namedpipes",
   "version": "0.1.5",
   "description": "mainly designed to work with GrpcDotNetNamedPipes, enabling IPC between .NET and NodeJS apps",
-  "main": "index.js",
+  "main": "./build/index.js",
   "scripts": {
     "test": "mocha",
     "generate:types": "tsc index.js namedPipeServer.js --declaration --allowJs --outDir=dist",
-    "generate:proto": "grpc_tools_node_protoc --js_out=import_style=commonjs,binary:./proto/gen --grpc_out=grpc_js:./proto/gen -I ./proto ./proto/*.proto",
+    "generate:proto": "grpc_tools_node_protoc --js_out=import_style=commonjs,binary:./src/gen --grpc_out=grpc_js:./src/gen -I ./proto ./proto/*.proto",
     "generate:test:proto": "grpc_tools_node_protoc --js_out=import_style=commonjs,binary:./test/proto/gen --grpc_out=grpc_js:./test/proto/gen -I ./test/proto ./test/proto/*.proto",
     "generate:protobuf": "pbjs -t static-module -w commonjs -o proto/gen/messages.js ./proto/*.proto",
     "generate": "npm run generate:proto && npm run generate:protobuf && npm run generate:test:proto"
@@ -30,10 +30,11 @@
     "chai": "^4.4.1",
     "mocha": "^10.4.0"
   },
-  "types": "types/",
+  "types": "./build/index.d.ts",
   "files": [
     "types",
     "src",
+    "build",
     "proto/gen"
   ]
 }
