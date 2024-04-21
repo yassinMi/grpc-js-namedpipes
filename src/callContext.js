@@ -1,10 +1,8 @@
 //@ts-check
 const net = require("net")
 const protobuf = require("protobufjs");
-const { Writable } = require("stream");
 const messagesTransport = require("./gen/transport_pb") //generated with package google-protobuf 
 const { GrpcDotNetNamedPipes } = require("./gen/messages");//generated with package protobufjs and protobufjs-cli
-const { EventEmitter } = require("stream");
 const { status, Metadata } = require("@grpc/grpc-js");
 const { WriteTransaction } = require("./writeTransaction");
 const { StreamPacketsReader } = require("./streamPacketsReader");
@@ -133,17 +131,13 @@ class ServerCallContext {
                 console.log("awaiting handeler  for call: ", this.currentCall.path)
                 await handeler(this);
             } catch (error) {
+                //handlerInternal shoul never throw
                 implementationEror = error?.message ?? "unknown";
+                await this.sendError(status.INTERNAL, implementationEror);
             }
         }
 
-        try {
-            if (implementationEror !== null)
-                await this.sendError(status.UNKNOWN, implementationEror);
-        }
-        catch (err) {
-            console.log("sendResponse failed: ", err)
-        }
+      
 
     }
     checkPayloadCompleted = async () => {
@@ -230,103 +224,5 @@ class ServerCallContext {
 
 
 
-/**
- * @template TRequest
- */
-class ServerUnaryCallNP extends EventEmitter {
 
-    constructor() {
-
-        super();
-    }
-    /**
-     * @type {TRequest}
-     */
-    request
-    /**
-     * @type {boolean}
-     */
-    cancelled
-    /**
-     * @type {Metadata}
-     */
-    metadata
-    sendMetadata(metadata) {
-    }
-    getPeer() {
-        return "NA"
-    }
-}
-
-
-/**
- * @template TRequest
- */
-class ServerWritableStreamNP extends Writable {
-
-    /**
-     * @param {ServerCallContext} callContext
-     * @param {import("grpc").MethodDefinition} def
-     */
-    constructor(callContext, def) {
-
-        super();
-        this.callContext = callContext
-
-        this.def = def;
-    }
-    /**
-    * @type {ServerCallContext} 
-    */
-    callContext;
-    /**
-     * 
-     * @param {any} chunk 
-     * @param {({(er:Error|null|undefined):void})|undefined} cb
-     * @returns {boolean}
-     */
-    // @ts-ignore
-    write(chunk, cb) {
-
-
-        var bytes = this.def.responseSerialize(chunk)
-        new WriteTransaction()
-            .addPayloadWithLeadingPayloadInfo(bytes)
-            .writeTo(this.callContext.current_socket);
-        return true
-    }
-    // @ts-ignore
-    end() {
-        var msg = new proto.GrpcDotNetNamedPipes.Generated.TransportMessage();
-        var trailers = new proto.GrpcDotNetNamedPipes.Generated.Trailers();
-        trailers.setStatusCode(0);
-        trailers.setStatusDetail("");
-
-        msg.setTrailers(trailers);
-        new WriteTransaction()
-            .addTransportMessage(msg)
-            .writeTo(this.callContext.current_socket);
-        // this.callContext.current_socket.end()
-    }
-    /**
-     * @type {TRequest}
-     */
-    request
-    /**
-     * @type {boolean}
-     */
-    cancelled
-    /**
-     * @type {Metadata}
-     */
-    metadata
-    sendMetadata(metadata) {
-    }
-    getPeer() {
-        return "NA"
-    }
-}
-
-exports.ServerUnaryCallNP = ServerUnaryCallNP
-exports.ServerWritableStreamNP = ServerWritableStreamNP
 exports.ServerCallContext = ServerCallContext
