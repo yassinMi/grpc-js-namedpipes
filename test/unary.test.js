@@ -93,9 +93,6 @@ var largeMessage = "client123".repeat(10_000)
 
 describe("Unary", (s) => {
 
-
-
-
     it("should handle simple unary call", async function () {
         this.timeout("10000")
         await runClientTestWithTestName("SimpleUnary", testService.TestServiceService, testServiceImpl);
